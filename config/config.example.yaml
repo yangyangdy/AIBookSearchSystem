@@ -1,0 +1,57 @@
+# MySQL配置
+mysql:
+  host: "localhost"
+  port: 3306
+  user: "your_user"
+  password: "your_password"
+  database: "your_database"
+  table_name: "book_info_table"  # 可配置表名
+  pool_size: 10
+  max_overflow: 20
+
+# Milvus配置（扁平结构；索引可选 IVF_FLAT / HNSW）
+milvus:
+  host: "localhost"
+  port: 19530
+  user: ""        # 用户名，空则无认证
+  password: ""    # 密码
+  collection_name: "book_cover_vectors"
+  metric_type: "COSINE"
+  index_type: "IVF_FLAT"
+  nlist: 1024
+  nprobe: 16
+  M: 16
+  ef_construction: 200
+  ef: 64
+
+# 阿里云 DashScope
+aliyun:
+  api_key: "your_api_key"
+  embedding_model: "qwen3-vl-embedding"  # MultiModalEmbedding
+  embedding_dimension: 1024              # 须与 Milvus 向量维度一致
+  ocr_service: "aliyun_ocr"             # 保留字段
+  ocr_model: "qwen-vl-ocr-latest"      # MultiModalConversation OCR
+
+# 处理配置
+processing:
+  batch_size: 1000  # 每批处理数量
+  max_workers: 10  # 并发线程数
+  retry_times: 3  # 重试次数
+  timeout: 30  # 超时时间（秒）
+  image_download_timeout: 10  # 图片下载超时（秒）
+
+# API配置
+api:
+  host: "0.0.0.0"
+  port: 8000
+  title: "书籍封面向量检索系统"
+  version: "1.0.0"
+
+# 日志配置
+logging:
+  level: "INFO"
+  file: "logs/app.log"       # 默认（未指定 profile 时）
+  api_file: "logs/api.log"   # API 入口日志
+  batch_file: "logs/batch.log"  # 批量处理日志
+  rotation: "10 MB"
+  retention: "7 days"
