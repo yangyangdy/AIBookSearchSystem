@@ -6,7 +6,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from loguru import logger
 
 from src.core.mysql_client import MySQLClient
-from src.core.milvus_client import MilvusClient
+from src.core.vector_store import get_vector_store
 from src.core.image_processor import ImageProcessor
 from src.core.embedding_client import EmbeddingClient
 from src.core.ocr_client import OCRClient
@@ -27,7 +27,7 @@ class BatchProcessor:
         """
         # 初始化各个客户端
         self.mysql_client = MySQLClient()
-        self.milvus_client = MilvusClient()
+        self.vector_store = get_vector_store()
         self.image_processor = ImageProcessor()
         self.embedding_client = EmbeddingClient()
         self.ocr_client = OCRClient()
@@ -195,17 +195,19 @@ class BatchProcessor:
             results, errors = self.process_batch(records)
             process_time = time.time() - start_time
 
-            # 3. 插入Milvus
+            # 3. 写入向量库
             if results:
                 try:
-                    self.milvus_client.insert(results)
-                    logger.info(f"成功处理 {len(results)} 条，插入Milvus，耗时: {process_time:.2f}秒")
+                    self.vector_store.insert(results)
+                    logger.info(
+                        f"成功处理 {len(results)} 条，写入向量库，耗时: {process_time:.2f}秒"
+                    )
                 except Exception as e:
-                    logger.error(f"Milvus插入失败: {e}")
+                    logger.error(f"向量库写入失败: {e}")
                     for result in results:
                         errors.append({
                             "record": {"id": result["mysql_id"]},
-                            "error": f"Milvus插入失败: {e}"
+                            "error": f"向量库写入失败: {e}"
                         })
                     results = []
 
@@ -255,4 +257,5 @@ class BatchProcessor:
         """关闭所有连接"""
         self.mysql_client.close()
         self.milvus_client.close()
+        self.vector_store.close()
         logger.info("所有连接已关闭")

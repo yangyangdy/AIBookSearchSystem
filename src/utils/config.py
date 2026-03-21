@@ -1,7 +1,7 @@
 """配置管理模块"""
 import os
 from pathlib import Path
-from typing import Optional
+from typing import Literal, Optional
 from pydantic_settings import BaseSettings
 from pydantic import Field
 import yaml
@@ -42,6 +42,21 @@ class MilvusConfig(BaseSettings):
         env_prefix = "MILVUS_"
         case_sensitive = False
 
+class DashVectorConfig(BaseSettings):
+    """阿里云 DashVector 配置（vector_backend=dashvector 时必填 endpoint；api_key 为空则使用 aliyun.api_key）"""
+
+    endpoint: str = Field(default="", description="DashVector 集群 endpoint")
+    collection_name: str = Field(
+        default="book_cover_vectors", description="Collection 名称"
+    )
+    api_key: str = Field(default="", description="为空则使用 aliyun.api_key")
+    metric: str = Field(
+        default="cosine", description="距离度量：cosine / dotproduct / euclidean"
+    )
+
+    class Config:
+        env_prefix = "DASHVECTOR_"
+        case_sensitive = False
 
 class AliyunConfig(BaseSettings):
     """阿里云配置"""
@@ -49,7 +64,9 @@ class AliyunConfig(BaseSettings):
     embedding_model: str = Field(
         default="qwen3-vl-embedding", description="向量化模型（MultiModalEmbedding）"
     )
-    embedding_dimension: int = Field(default=1024, description="向量维度，需与 Milvus 一致")
+    embedding_dimension: int = Field(
+        default=1024, description="向量维度，需与当前向量库（Milvus / DashVector）一致"
+    )
     ocr_service: str = Field(default="aliyun_ocr", description="OCR服务")
     ocr_model: str = Field(
         default="qwen-vl-ocr-latest", description="OCR 多模态模型（MultiModalConversation）"
@@ -101,8 +118,12 @@ class LoggingConfig(BaseSettings):
 
 class Settings(BaseSettings):
     """全局配置"""
+    vector_backend: Literal["milvus", "dashvector"] = Field(
+        default="milvus", description="向量库：milvus 或 dashvector"
+    )
     mysql: MySQLConfig
     milvus: MilvusConfig
+    dashvector: DashVectorConfig
     aliyun: AliyunConfig
     processing: ProcessingConfig
     api: APIConfig
@@ -120,10 +141,22 @@ class Settings(BaseSettings):
         
         with open(config_file, "r", encoding="utf-8") as f:
             config_data = yaml.safe_load(f)
-        
+
+        vb_raw = config_data.get("vector_backend", "milvus")
+        if isinstance(vb_raw, str):
+            vb = vb_raw.strip().lower()
+        else:
+            vb = "milvus"
+        if vb not in ("milvus", "dashvector"):
+            raise ValueError(
+                f"无效 vector_backend: {vb_raw!r}，仅支持 milvus、dashvector"
+            )
+
         return cls(
+            vector_backend=vb,
             mysql=MySQLConfig(**config_data.get("mysql", {})),
             milvus=MilvusConfig(**config_data.get("milvus", {})),
+            dashvector=DashVectorConfig(**config_data.get("dashvector", {})),
             aliyun=AliyunConfig(**config_data.get("aliyun", {})),
             processing=ProcessingConfig(**config_data.get("processing", {})),
             api=APIConfig(**config_data.get("api", {})),
@@ -133,9 +166,15 @@ class Settings(BaseSettings):
     @classmethod
     def load_from_env(cls) -> "Settings":
         """从环境变量加载配置"""
+        vb_raw = os.getenv("VECTOR_BACKEND", "milvus")
+        vb = vb_raw.strip().lower() if isinstance(vb_raw, str) else "milvus"
+        if vb not in ("milvus", "dashvector"):
+            vb = "milvus"
         return cls(
+            vector_backend=vb,
             mysql=MySQLConfig(),
             milvus=MilvusConfig(),
+            dashvector=DashVectorConfig(),
             aliyun=AliyunConfig(),
             processing=ProcessingConfig(),
             api=APIConfig(),

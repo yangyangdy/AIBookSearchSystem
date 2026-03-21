@@ -9,6 +9,7 @@ aiomysql>=0.2.0
 
 # 向量数据库
 pymilvus>=2.5.0
+dashvector>=1.0.0
 
 # HTTP客户端
 httpx>=0.25.0

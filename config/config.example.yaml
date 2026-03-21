@@ -1,3 +1,6 @@
+# 向量库后端：milvus（默认）或 dashvector
+vector_backend: dashvector
+
 # MySQL配置
 mysql:
   host: "localhost"
@@ -24,11 +27,18 @@ milvus:
   ef_construction: 200
   ef: 64
 
+# 阿里云 DashVector（vector_backend: dashvector 时必填 endpoint；api_key 可留空沿用 aliyun.api_key）
+dashvector:
+  endpoint: ""
+  collection_name: "book_cover_vectors"
+  api_key: ""
+  metric: "cosine"
+
 # 阿里云 DashScope
 aliyun:
   api_key: "your_api_key"
   embedding_model: "qwen3-vl-embedding"  # MultiModalEmbedding
-  embedding_dimension: 1024              # 须与 Milvus 向量维度一致
+  embedding_dimension: 1024              # 须与向量库（Milvus / DashVector）维度一致
   ocr_service: "aliyun_ocr"             # 保留字段
   ocr_model: "qwen-vl-ocr-latest"      # MultiModalConversation OCR
 

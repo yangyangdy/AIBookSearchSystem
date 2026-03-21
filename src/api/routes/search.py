@@ -6,13 +6,12 @@ from fastapi import APIRouter, HTTPException
 from loguru import logger
 
 from src.api.models import SearchRequest, SearchResponse, SearchResultItem
-from src.core.milvus_client import MilvusClient
+from src.core.vector_store import get_vector_store
 from src.core.embedding_client import EmbeddingClient
 from src.core.ocr_client import OCRClient
 
 router = APIRouter(prefix="/api/v1", tags=["search"])
 
-_milvus_client: MilvusClient = None
 _embedding_client: EmbeddingClient = None
 _ocr_client: OCRClient = None
 
@@ -20,14 +19,6 @@ _OCR_COMPARE_LEN = 400
 _SIG_CHAR = re.compile(r"[\u4e00-\u9fffA-Za-z0-9]")
 # 单词：连续字母数字 或 连续汉字（便于中英文统一处理）
 _WORD_PATTERN = re.compile(r"[A-Za-z0-9]+|[\u4e00-\u9fff]+")
-
-
-def get_milvus_client() -> MilvusClient:
-    global _milvus_client
-    if _milvus_client is None:
-        _milvus_client = MilvusClient()
-    return _milvus_client
-
 
 def get_embedding_client() -> EmbeddingClient:
     global _embedding_client
@@ -133,7 +124,7 @@ async def search(request: SearchRequest):
        - 比对通过则返回该条，否则返回空。
     """
     try:
-        milvus_client = get_milvus_client()
+        vector_store = get_vector_store()
         embedding_client = get_embedding_client()
 
         if request.image_url:
@@ -149,7 +140,7 @@ async def search(request: SearchRequest):
         thr1 = request.similarity_threshold1
         thr2 = request.similarity_threshold2
 
-        search_results = milvus_client.search(
+        search_results = vector_store.search(
             query_vectors=[embedding],
             top_k= max(request.top_k , 1),
             output_fields=[

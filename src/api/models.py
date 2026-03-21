@@ -92,3 +92,13 @@ class HealthResponse(BaseModel):
     version: str = Field(..., description="版本")
     milvus_connected: bool = Field(..., description="Milvus连接状态")
     milvus_count: Optional[int] = Field(None, description="Milvus记录数")
+    vector_backend: str = Field(
+        ..., description="当前向量库后端：milvus 或 dashvector"
+    )
+    milvus_connected: bool = Field(
+        ...,
+        description="当前配置的向量库是否连接正常（历史字段名保留）",
+    )
+    milvus_count: Optional[int] = Field(
+        None, description="当前向量库文档/向量条数（历史字段名保留）"
+    )

@@ -12,7 +12,7 @@ class MilvusClient:
         """初始化 Milvus 客户端"""
         settings = get_settings()
         milvus_config = settings.milvus
-
+        self._embedding_dim = settings.aliyun.embedding_dimension
         uri = f"http://{milvus_config.host}:{milvus_config.port}"
         self._client = PyMilvusClient(
             uri=uri,
@@ -99,7 +99,7 @@ class MilvusClient:
         schema.add_field(
             field_name="embedding",
             datatype=DataType.FLOAT_VECTOR,
-            dim=1024,
+            dim=self._embedding_dim,
             description="图片向量",
         )
 
@@ -234,12 +234,18 @@ class MilvusClient:
     def count(self) -> int:
         """获取 Collection 中的记录数"""
         from pymilvus.client.types import LoadState
-        load_state_info  = self._client.is_collection_loaded(collection_name=self.collection_name)
+        load_state_info = self._client.is_collection_loaded(collection_name=self.collection_name)
         state = load_state_info["state"]
         if state is not LoadState.Loaded:
             self._client.load_collection(collection_name=self.collection_name)
-        return self._client.query(collection_name=self.collection_name, output_fields=["count(*)"])
-
+        rows = self._client.query(
+            collection_name=self.collection_name, output_fields=["count(*)"]
+        )
+        if isinstance(rows, list) and rows and isinstance(rows[0], dict):
+            v = rows[0].get("count(*)")
+            return int(v) if v is not None else 0
+        return 0
+    
     def close(self):
         """关闭连接"""
         if hasattr(self._client, "close"):
