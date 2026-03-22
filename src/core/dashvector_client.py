@@ -107,6 +107,27 @@ class DashVectorClient:
         _require_ok(rsp, "upsert")
         logger.info(f"成功 upsert {len(data)} 条数据到 DashVector")
 
+    def _metric_to_similarity(self, raw: float) -> tuple[float, float]:
+        """
+        DashVector query 返回的 score 含义随 metric 不同，与 Milvus 检索里用于阈值的「越大越相似」需对齐。
+
+        cosine：官方定义为余弦距离 = 1 - 余弦相似度，取值约 [0, 2]，越小越相似。
+        此处将余弦相似度 = 1 - 余弦距离，并限制在 [0, 1]，供 /search 与 Milvus 相同的 threshold 使用。
+
+        dotproduct：点积越大越相似，与阈值方向一致，直接作为 score。
+
+        euclidean：距离越小越相似；未做归一化，与 0.95/0.85 阈值不可直接类比。
+        参考：https://help.aliyun.com/document_detail/2584947.html
+        """
+        r = float(raw)
+        m = self._metric
+        if m == "cosine":
+            sim = 1.0 - r
+            return (max(0.0, min(1.0, sim)), r)
+        if m == "dotproduct":
+            return (r, r)
+        return (r, r)
+
     def search(
         self,
         query_vectors: List[List[float]],
@@ -145,10 +166,11 @@ class DashVectorClient:
                         fid = int(doc.id) if doc.id is not None else 0
                     except ValueError:
                         fid = 0
+                sim, raw_metric = self._metric_to_similarity(doc.score)
                 hit_dict: Dict = {
                     "id": int(fid) if fid is not None else 0,
-                    "score": doc.score,
-                    "distance": doc.score,
+                    "score": sim,
+                    "distance": raw_metric,
                 }
                 for field in output_fields:
                     if doc.fields and field in doc.fields:

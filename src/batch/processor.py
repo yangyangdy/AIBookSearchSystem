@@ -256,6 +256,5 @@ class BatchProcessor:
     def close(self):
         """关闭所有连接"""
         self.mysql_client.close()
-        self.milvus_client.close()
         self.vector_store.close()
         logger.info("所有连接已关闭")
