@@ -3,9 +3,20 @@ import os
 from pathlib import Path
 from typing import Literal, Optional
 from pydantic_settings import BaseSettings
-from pydantic import Field
+from pydantic import BaseModel, Field
 import yaml
 
+class SearchImageCompressConfig(BaseModel):
+    """POST /search 查询图压缩（批量入库不使用）"""
+
+    enabled: bool = Field(default=True, description="是否启用")
+    max_bytes: int = Field(
+        default=1_048_576, description="目标最大字节数（不超过则跳过压缩）"
+    )
+    max_long_edge: int = Field(default=2048, description="长边像素上限（迭代缩小起点）")
+    min_long_edge: int = Field(default=640, description="长边缩小下限")
+    jpeg_quality_start: int = Field(default=85, description="JPEG 初始质量 1-95")
+    jpeg_quality_min: int = Field(default=50, description="JPEG 最低质量")
 
 class MySQLConfig(BaseSettings):
     """MySQL配置"""
@@ -96,6 +107,10 @@ class APIConfig(BaseSettings):
     port: int = Field(default=8000, description="API端口")
     title: str = Field(default="书籍封面向量检索系统", description="API标题")
     version: str = Field(default="1.0.0", description="API版本")
+    search_image_compress: SearchImageCompressConfig = Field(
+        default_factory=SearchImageCompressConfig,
+        description="检索上传图压缩",
+    )
 
     class Config:
         env_prefix = "API_"
@@ -119,7 +134,7 @@ class LoggingConfig(BaseSettings):
 class Settings(BaseSettings):
     """全局配置"""
     vector_backend: Literal["milvus", "dashvector"] = Field(
-        default="milvus", description="向量库：milvus 或 dashvector"
+        default="dashvector", description="向量库：milvus 或 dashvector"
     )
     mysql: MySQLConfig
     milvus: MilvusConfig

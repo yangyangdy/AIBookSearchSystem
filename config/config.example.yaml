@@ -56,6 +56,14 @@ api:
   port: 8000
   title: "书籍封面向量检索系统"
   version: "1.0.0"
+  # 仅 POST /search：大图压至 max_bytes 内再向量化/OCR（批量入库不使用）
+  search_image_compress:
+    enabled: true
+    max_bytes: 1048576          # 1MiB
+    max_long_edge: 2048
+    min_long_edge: 640
+    jpeg_quality_start: 85
+    jpeg_quality_min: 50
 
 # 日志配置
 logging:

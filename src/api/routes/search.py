@@ -1,14 +1,20 @@
 """搜索接口"""
+import base64
 import re
-from typing import List, Set, Tuple
-
+from typing import List, Optional, Set, Tuple
 from fastapi import APIRouter, HTTPException
 from loguru import logger
 
 from src.api.models import SearchRequest, SearchResponse, SearchResultItem
 from src.core.vector_store import get_vector_store
 from src.core.embedding_client import EmbeddingClient
+from src.core.image_processor import ImageProcessor
 from src.core.ocr_client import OCRClient
+from src.utils.config import get_settings
+from src.utils.search_image_compress import (
+    compress_search_image_bytes,
+    decode_base64_to_bytes,
+)
 
 router = APIRouter(prefix="/api/v1", tags=["search"])
 
@@ -126,13 +132,45 @@ async def search(request: SearchRequest):
     try:
         vector_store = get_vector_store()
         embedding_client = get_embedding_client()
+        icfg = get_settings().api.search_image_compress
+
+        embedding_src_url: Optional[str] = None
+        embedding_src_b64: Optional[str] = None
 
         if request.image_url:
             embedding = embedding_client.get_embedding(str(request.image_url))
+            if icfg.enabled:
+                ip = ImageProcessor()
+                raw = ip.download_image(str(request.image_url))
+                if raw is None:
+                    raise HTTPException(status_code=400, detail="图片下载失败")
+                try:
+                    prepared = compress_search_image_bytes(raw, icfg)
+                except ValueError as e:
+                    raise HTTPException(status_code=400, detail=str(e))
+                embedding_src_b64 = base64.standard_b64encode(prepared).decode("ascii")
+            else:
+                embedding_src_url = str(request.image_url)
         elif request.image_base64:
-            embedding = embedding_client.get_embedding_from_base64(request.image_base64)
+            if icfg.enabled:
+                try:
+                    raw = decode_base64_to_bytes(request.image_base64)
+                except Exception:
+                    raise HTTPException(status_code=400, detail="Base64 解码失败")
+                try:
+                    prepared = compress_search_image_bytes(raw, icfg)
+                except ValueError as e:
+                    raise HTTPException(status_code=400, detail=str(e))
+                embedding_src_b64 = base64.standard_b64encode(prepared).decode("ascii")
+            else:
+                embedding_src_b64 = request.image_base64
         else:
             raise HTTPException(status_code=400, detail="必须提供image_url或image_base64")
+
+        if embedding_src_url is not None:
+            embedding = embedding_client.get_embedding(embedding_src_url)
+        else:
+            embedding = embedding_client.get_embedding_from_base64(embedding_src_b64)
 
         if embedding is None:
             raise HTTPException(status_code=500, detail="向量化失败")
@@ -197,11 +235,11 @@ async def search(request: SearchRequest):
                 else:
                     best = tier2[0]
                     ocr_client = get_ocr_client()
-                    if request.image_url:
-                        query_ocr = ocr_client.extract_text(str(request.image_url))
+                    if embedding_src_url is not None:
+                        query_ocr = ocr_client.extract_text(embedding_src_url)
                     else:
                         query_ocr = ocr_client.extract_text_from_base64(
-                            request.image_base64 or ""
+                            embedding_src_b64 or ""
                         )
                     qstrip = (query_ocr or "").strip()
                     if not qstrip:
