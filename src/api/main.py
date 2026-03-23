@@ -7,7 +7,7 @@ logger_module.setup_logger("api")
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from loguru import logger
 
@@ -48,6 +48,16 @@ if _STATIC_DIR.is_dir():
         name="static",
     )
 
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    """浏览器默认请求 /favicon.ico，避免无路由时刷 404 日志。"""
+    ico = _STATIC_DIR / "favicon.ico"
+    if ico.is_file():
+        return FileResponse(ico, media_type="image/x-icon")
+    svg = _STATIC_DIR / "favicon.svg"
+    if svg.is_file():
+        return FileResponse(svg, media_type="image/svg+xml")
+    return Response(status_code=204)
 
 @app.get("/")
 async def serve_search_page():

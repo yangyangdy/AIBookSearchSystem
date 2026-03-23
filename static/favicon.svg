@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- 打开的书：墨绿底 + 米色书页 + 金色书脊 -->
+  <rect width="32" height="32" rx="7" fill="#2d4a3e"/>
+  <path fill="#f4e4bc" d="M6 8h9.5v16H7a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/>
+  <path fill="#faf3dd" d="M16.5 8H26a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-9.5V8z"/>
+  <rect x="14.5" y="7" width="3" height="18" rx="0.5" fill="#c9a227"/>
+</svg>
